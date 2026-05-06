@@ -1,4 +1,4 @@
-import { marked, Renderer } from 'marked'
+import { marked, Renderer, Tokens } from 'marked'
 import hljs from 'highlight.js'
 import katex from 'katex'
 import { DiagramRendererConfig } from '../../types'
@@ -17,7 +17,6 @@ function buildLineMap(source: string): LineMapEntry[] {
   const entries: LineMapEntry[] = []
   const lines = source.split('\n')
   let inCodeBlock = false
-  let codeBlockStart = 0
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -26,7 +25,6 @@ function buildLineMap(source: string): LineMapEntry[] {
     if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
       if (!inCodeBlock) {
         inCodeBlock = true
-        codeBlockStart = i + 1
         entries.push({ type: 'code', line: i + 1 })
       } else {
         inCodeBlock = false
@@ -89,30 +87,30 @@ function buildRenderer(diagramConfig: DiagramRendererConfig): Renderer {
   }
 
   const originalHeading = renderer.heading.bind(renderer)
-  renderer.heading = (token: { tokens: any[]; depth: number }) => {
+  renderer.heading = (token: Tokens.Heading) => {
     const line = nextLine()
-    const text = token.tokens.map((t: any) => t.raw || t.text || '').join('')
+    const text = token.tokens.map((t: Tokens.Generic) => t.raw || t.text || '').join('')
     const id = text.toLowerCase().replace(/[^\w]+/g, '-').replace(/(^-|-$)/g, '')
     const content = originalHeading(token)
     return content.replace(/^<h(\d)/, `<h$1 data-line="${line}" id="${id}"`)
   }
 
   const originalBlockquote = renderer.blockquote.bind(renderer)
-  renderer.blockquote = (token: { tokens: any[] }) => {
+  renderer.blockquote = (token: Tokens.Blockquote) => {
     const line = nextLine()
     const content = originalBlockquote(token)
     return content.replace(/^<blockquote/, `<blockquote data-line="${line}"`)
   }
 
   const originalList = renderer.list.bind(renderer)
-  renderer.list = (token: any) => {
+  renderer.list = (token: Tokens.List) => {
     const line = nextLine()
     const content = originalList(token)
     return content.replace(/^<(ul|ol)/, `<$1 data-line="${line}"`)
   }
 
   const originalParagraph = renderer.paragraph.bind(renderer)
-  renderer.paragraph = (token: { tokens: any[] }) => {
+  renderer.paragraph = (token: Tokens.Paragraph) => {
     const line = nextLine()
     const content = originalParagraph(token)
     return content.replace(/^<p/, `<p data-line="${line}"`)

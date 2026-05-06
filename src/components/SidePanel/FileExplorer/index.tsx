@@ -14,7 +14,7 @@ import {
   createFile,
   createFolder,
 } from '../../../services/drive'
-import { OpenFile } from '../../../types'
+import { OpenFile, isDriveFolder } from '../../../types'
 import { FolderIconThemed, MarkdownIconThemed, NewFileIconThemed, NewFolderIconThemed, RefreshIconThemed } from '../../icons'
 import FileTreeNode from './FileTreeNode'
 import styles from './FileExplorer.module.css'
@@ -118,12 +118,12 @@ export default function FileExplorer() {
         return undefined
       }
       const folderData = findFolder(folderState)
-      if (folderData && !folderData.isExpanded) {
+      if (folderData && isDriveFolder(folderData) && !folderData.isExpanded) {
         toggleFolder(folder.id)
       }
 
       // Load children if not loaded
-      if (!folderData?.isLoaded) {
+      if (!folderData || !isDriveFolder(folderData) || !folderData.isLoaded) {
         try {
           const children = await listFolder(folder.id)
           update(folder.id, children)
@@ -134,7 +134,7 @@ export default function FileExplorer() {
 
       // Move to children for next iteration
       const updatedFolder = findFolder(useDriveStore.getState().rootItems)
-      currentItems = (updatedFolder as any)?.children || []
+      currentItems = updatedFolder && isDriveFolder(updatedFolder) ? updatedFolder.children || [] : []
     }
   }
 
