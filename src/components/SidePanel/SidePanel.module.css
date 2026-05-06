@@ -1,0 +1,27 @@
+.sidePanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-sidebar);
+  overflow: hidden;
+}
+
+.header {
+  padding: 8px 12px 4px;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

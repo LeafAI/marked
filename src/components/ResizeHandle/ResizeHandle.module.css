@@ -1,0 +1,23 @@
+.handle {
+  background: var(--color-border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+
+.handle:hover,
+.handle:active {
+  background: var(--color-accent);
+}
+
+.vertical {
+  width: var(--resize-handle-size);
+  cursor: col-resize;
+  grid-area: unset;
+}
+
+.horizontal {
+  height: var(--resize-handle-size);
+  cursor: row-resize;
+}

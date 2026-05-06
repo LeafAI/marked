@@ -1,0 +1,38 @@
+.app {
+  display: grid;
+  grid-template-areas:
+    'activity sidebar resize-left editor resize-right preview'
+    'status   status  status      status  status       status';
+  grid-template-columns:
+    var(--activity-bar-width)
+    var(--sidebar-width, 240px)
+    auto
+    1fr
+    auto
+    var(--preview-width, 420px);
+  grid-template-rows: 1fr var(--statusbar-height);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--color-bg-editor);
+}
+
+.sidePanel {
+  grid-area: sidebar;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border);
+  transition: width 0ms; /* instant, driven by JS */
+}
+
+.editorArea {
+  grid-area: editor;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.previewPanel {
+  grid-area: preview;
+  overflow: hidden;
+  border-left: 1px solid var(--color-border);
+  transition: width 0ms;
+}

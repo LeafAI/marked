@@ -1,0 +1,36 @@
+.statusBar {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--statusbar-height);
+  background: var(--color-bg-statusbar);
+  color: var(--color-text-statusbar);
+  padding: 0 8px;
+  font-size: 12px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.9;
+}
+
+.item:hover {
+  opacity: 1;
+}
+
+.disconnected {
+  opacity: 0.7;
+}
