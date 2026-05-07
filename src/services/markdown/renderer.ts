@@ -121,8 +121,8 @@ function buildRenderer(diagramConfig: DiagramRendererConfig): Renderer {
 
 // ─── Math inline preprocessing ────────────────────────────────────────────────
 
-function renderMath(text: string): string {
-  // Block math: $$...$$ (must appear on own lines or be isolated)
+function processMathSegment(text: string): string {
+  // Block math: $$...$$
   let result = text.replace(/\$\$([\s\S]+?)\$\$/g, (_match, math: string) => {
     try {
       return katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })
@@ -141,6 +141,14 @@ function renderMath(text: string): string {
   })
 
   return result
+}
+
+function renderMath(text: string): string {
+  // Split by fenced code blocks to avoid processing math inside code
+  const parts = text.split(/(^```\w*\n[\s\S]*?^\s*```[ \t]*$|^~~~\w*\n[\s\S]*?^\s*~~~[ \t]*$)/gm)
+  return parts
+    .map((part, i) => (i % 2 === 0 ? processMathSegment(part) : part))
+    .join('')
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

@@ -193,6 +193,44 @@ export async function createFolder(name: string, parentId: string): Promise<Driv
   return { ...file, isLoaded: false, isExpanded: false }
 }
 
+// ─── Rename ──────────────────────────────────────────────────────────────────
+
+export async function renameFile(fileId: string, name: string): Promise<void> {
+  await request<DriveFile>(`${API}/files/${fileId}?supportsAllDrives=true`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+}
+
+// ─── Trash ───────────────────────────────────────────────────────────────────
+
+export async function trashFile(fileId: string): Promise<void> {
+  const token = getAccessToken()
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(`${API}/files/${fileId}?supportsAllDrives=true`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (res.status === 401) {
+    clearAuth()
+    throw new Error('Session expired')
+  }
+
+  if (!res.ok) throw new Error(`Failed to trash file: ${res.status}`)
+}
+
+// ─── Move ────────────────────────────────────────────────────────────────────
+
+export async function moveFile(fileId: string, newParentId: string, oldParentId: string): Promise<void> {
+  await request<DriveFile>(
+    `${API}/files/${fileId}?addParents=${newParentId}&removeParents=${oldParentId}&supportsAllDrives=true`,
+    { method: 'PATCH' }
+  )
+}
+
 // ─── Path resolution ──────────────────────────────────────────────────────────
 
 interface FileMeta {

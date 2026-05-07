@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { DriveItem, DriveFolder } from '../types'
+import { DriveItem, DriveFolder, isDriveFolder } from '../types'
 
 interface DriveState {
   isAuthenticated: boolean
@@ -15,19 +15,45 @@ interface DriveState {
   setSharedDrives: (drives: DriveFolder[]) => void
   updateFolder: (folderId: string, children: DriveItem[]) => void
   toggleFolder: (folderId: string) => void
+  renameItem: (itemId: string, newName: string) => void
+  removeItem: (itemId: string) => void
+  moveItem: (itemId: string, oldParentId: string, newParentId: string, item: DriveItem) => void
   setCurrentFolder: (id: string) => void
   setLoadingFolder: (loading: boolean) => void
   setError: (error: string | null) => void
 }
 
-function updateFolderInTree(items: DriveItem[], folderId: string, update: Partial<DriveFolder>): DriveItem[] {
+function updateItemInTree(items: DriveItem[], itemId: string, update: Partial<DriveItem>): DriveItem[] {
   return items.map(item => {
-    if (item.id === folderId && item.mimeType === 'application/vnd.google-apps.folder') {
-      return { ...item, ...update } as DriveFolder
+    if (item.id === itemId) {
+      return { ...item, ...update }
     }
     const folder = item as DriveFolder
     if (folder.children) {
-      return { ...folder, children: updateFolderInTree(folder.children, folderId, update) }
+      return { ...folder, children: updateItemInTree(folder.children, itemId, update) }
+    }
+    return item
+  })
+}
+
+function removeFromTree(items: DriveItem[], itemId: string): DriveItem[] {
+  return items
+    .filter(item => item.id !== itemId)
+    .map(item => {
+      if (isDriveFolder(item) && item.children) {
+        return { ...item, children: removeFromTree(item.children, itemId) }
+      }
+      return item
+    })
+}
+
+function insertIntoFolder(items: DriveItem[], folderId: string, newItem: DriveItem): DriveItem[] {
+  return items.map(item => {
+    if (item.id === folderId && isDriveFolder(item)) {
+      return { ...item, children: [...(item.children ?? []), newItem] }
+    }
+    if (isDriveFolder(item) && item.children) {
+      return { ...item, children: insertIntoFolder(item.children, folderId, newItem) }
     }
     return item
   })
@@ -53,11 +79,11 @@ export const useDriveStore = create<DriveState>(set => ({
 
   updateFolder: (folderId, children) => {
     set(state => ({
-      rootItems: updateFolderInTree(state.rootItems, folderId, {
+      rootItems: updateItemInTree(state.rootItems, folderId, {
         children,
         isLoaded: true,
       }),
-      sharedDrives: updateFolderInTree(state.sharedDrives, folderId, {
+      sharedDrives: updateItemInTree(state.sharedDrives, folderId, {
         children,
         isLoaded: true,
       }) as DriveFolder[],
@@ -82,9 +108,39 @@ export const useDriveStore = create<DriveState>(set => ({
       const target = findFolder([...state.rootItems, ...state.sharedDrives])
       const newExpanded = !target?.isExpanded
       return {
-        rootItems: updateFolderInTree(state.rootItems, folderId, { isExpanded: newExpanded }),
-        sharedDrives: updateFolderInTree(state.sharedDrives, folderId, { isExpanded: newExpanded }) as DriveFolder[],
+        rootItems: updateItemInTree(state.rootItems, folderId, { isExpanded: newExpanded }),
+        sharedDrives: updateItemInTree(state.sharedDrives, folderId, { isExpanded: newExpanded }) as DriveFolder[],
       }
+    })
+  },
+
+  renameItem: (itemId, newName) => {
+    set(state => ({
+      rootItems: updateItemInTree(state.rootItems, itemId, { name: newName }),
+      sharedDrives: updateItemInTree(state.sharedDrives, itemId, { name: newName }) as DriveFolder[],
+    }))
+  },
+
+  removeItem: itemId => {
+    set(state => ({
+      rootItems: removeFromTree(state.rootItems, itemId),
+      sharedDrives: removeFromTree(state.sharedDrives, itemId) as DriveFolder[],
+    }))
+  },
+
+  moveItem: (itemId, _oldParentId, newParentId, item) => {
+    set(state => {
+      const rootItems = insertIntoFolder(
+        removeFromTree(state.rootItems, itemId),
+        newParentId,
+        item
+      )
+      const sharedDrives = insertIntoFolder(
+        removeFromTree(state.sharedDrives, itemId),
+        newParentId,
+        item
+      ) as DriveFolder[]
+      return { rootItems, sharedDrives }
     })
   },
 
