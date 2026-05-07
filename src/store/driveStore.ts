@@ -6,6 +6,7 @@ interface DriveState {
   userEmail: string | null
   rootItems: DriveItem[]
   sharedDrives: DriveFolder[]
+  sharedWithMe: DriveItem[]
   currentFolderId: string
   isLoadingFolder: boolean
   error: string | null
@@ -13,6 +14,7 @@ interface DriveState {
   clearAuth: () => void
   setRootItems: (items: DriveItem[]) => void
   setSharedDrives: (drives: DriveFolder[]) => void
+  setSharedWithMe: (items: DriveItem[]) => void
   updateFolder: (folderId: string, children: DriveItem[]) => void
   toggleFolder: (folderId: string) => void
   renameItem: (itemId: string, newName: string) => void
@@ -64,6 +66,7 @@ export const useDriveStore = create<DriveState>(set => ({
   userEmail: null,
   rootItems: [],
   sharedDrives: [],
+  sharedWithMe: [],
   currentFolderId: 'root',
   isLoadingFolder: false,
   error: null,
@@ -71,11 +74,13 @@ export const useDriveStore = create<DriveState>(set => ({
   setAuthenticated: email => set({ isAuthenticated: true, userEmail: email, error: null }),
 
   clearAuth: () =>
-    set({ isAuthenticated: false, userEmail: null, rootItems: [], sharedDrives: [], currentFolderId: 'root' }),
+    set({ isAuthenticated: false, userEmail: null, rootItems: [], sharedDrives: [], sharedWithMe: [], currentFolderId: 'root' }),
 
   setRootItems: items => set({ rootItems: items }),
 
   setSharedDrives: drives => set({ sharedDrives: drives }),
+
+  setSharedWithMe: items => set({ sharedWithMe: items }),
 
   updateFolder: (folderId, children) => {
     set(state => ({
@@ -87,11 +92,16 @@ export const useDriveStore = create<DriveState>(set => ({
         children,
         isLoaded: true,
       }) as DriveFolder[],
+      sharedWithMe: updateItemInTree(state.sharedWithMe, folderId, {
+        children,
+        isLoaded: true,
+      }),
     }))
   },
 
   toggleFolder: folderId => {
     set(state => {
+      const allItems = [...state.rootItems, ...state.sharedDrives, ...state.sharedWithMe]
       const findFolder = (items: DriveItem[]): DriveFolder | undefined => {
         for (const item of items) {
           if (item.id === folderId && item.mimeType === 'application/vnd.google-apps.folder') {
@@ -105,11 +115,12 @@ export const useDriveStore = create<DriveState>(set => ({
         }
         return undefined
       }
-      const target = findFolder([...state.rootItems, ...state.sharedDrives])
+      const target = findFolder(allItems)
       const newExpanded = !target?.isExpanded
       return {
         rootItems: updateItemInTree(state.rootItems, folderId, { isExpanded: newExpanded }),
         sharedDrives: updateItemInTree(state.sharedDrives, folderId, { isExpanded: newExpanded }) as DriveFolder[],
+        sharedWithMe: updateItemInTree(state.sharedWithMe, folderId, { isExpanded: newExpanded }),
       }
     })
   },
@@ -118,6 +129,7 @@ export const useDriveStore = create<DriveState>(set => ({
     set(state => ({
       rootItems: updateItemInTree(state.rootItems, itemId, { name: newName }),
       sharedDrives: updateItemInTree(state.sharedDrives, itemId, { name: newName }) as DriveFolder[],
+      sharedWithMe: updateItemInTree(state.sharedWithMe, itemId, { name: newName }),
     }))
   },
 
@@ -125,6 +137,7 @@ export const useDriveStore = create<DriveState>(set => ({
     set(state => ({
       rootItems: removeFromTree(state.rootItems, itemId),
       sharedDrives: removeFromTree(state.sharedDrives, itemId) as DriveFolder[],
+      sharedWithMe: removeFromTree(state.sharedWithMe, itemId),
     }))
   },
 
@@ -140,7 +153,12 @@ export const useDriveStore = create<DriveState>(set => ({
         newParentId,
         item
       ) as DriveFolder[]
-      return { rootItems, sharedDrives }
+      const sharedWithMe = insertIntoFolder(
+        removeFromTree(state.sharedWithMe, itemId),
+        newParentId,
+        item
+      )
+      return { rootItems, sharedDrives, sharedWithMe }
     })
   },
 

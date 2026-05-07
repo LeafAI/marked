@@ -62,6 +62,25 @@ export async function listFolder(folderId = 'root', driveId?: string): Promise<D
   )
 }
 
+// ─── Shared with me ────────────────────────────────────────────────────────
+
+export async function listSharedWithMe(): Promise<DriveItem[]> {
+  const q = 'sharedWithMe = true and trashed = false'
+  const fields = 'files(id,name,mimeType,parents,modifiedTime,size)'
+  const params = new URLSearchParams({
+    q, fields, orderBy: 'folder,name', pageSize: '200',
+    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
+  })
+
+  const data = await request<FileListResponse>(`${API}/files?${params}`)
+
+  return data.files.map(f =>
+    f.mimeType === 'application/vnd.google-apps.folder'
+      ? ({ ...f, isLoaded: false, isExpanded: false } as DriveFolder)
+      : f
+  )
+}
+
 // ─── Shared drives ───────────────────────────────────────────────────────────
 
 interface SharedDriveListResponse {

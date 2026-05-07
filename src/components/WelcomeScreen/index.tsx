@@ -1,14 +1,39 @@
 import { useDriveStore } from '../../store/driveStore'
+import { useSettingsStore } from '../../store/settingsStore'
 import { useUIStore } from '../../store/uiStore'
+import { startAuth, getUserEmail, getAccessToken } from '../../services/drive'
 import styles from './WelcomeScreen.module.css'
 
 export default function WelcomeScreen() {
-  const { isAuthenticated } = useDriveStore()
-  const { toggleSidebar, sidebarVisible, setActiveSidePanelView } = useUIStore()
+  const { isAuthenticated, setAuthenticated, setError } = useDriveStore()
+  const { googleClientId } = useSettingsStore()
+  const { toggleSidebar, sidebarVisible, setActiveSidePanelView, setSettingsOpen } = useUIStore()
 
   function openExplorer() {
     setActiveSidePanelView('explorer')
     if (!sidebarVisible) toggleSidebar()
+  }
+
+  async function handleConnect() {
+    if (!googleClientId) {
+      setSettingsOpen(true)
+      return
+    }
+    setError(null)
+    try {
+      await startAuth(googleClientId)
+      const token = getAccessToken()
+      if (token) {
+        const email = await getUserEmail(token)
+        setAuthenticated(email)
+        openExplorer()
+      }
+    } catch (err) {
+      const msg = String(err)
+      if (!msg.includes('popup_closed') && !msg.includes('access_denied')) {
+        setError(msg)
+      }
+    }
   }
 
   return (
@@ -24,8 +49,8 @@ export default function WelcomeScreen() {
               Browse Google Drive
             </button>
           ) : (
-            <button className={styles.primaryBtn} onClick={openExplorer}>
-              Connect Google Drive
+            <button className={styles.primaryBtn} onClick={handleConnect}>
+              {googleClientId ? 'Connect Google Drive' : 'Configure Client ID first →'}
             </button>
           )}
         </div>

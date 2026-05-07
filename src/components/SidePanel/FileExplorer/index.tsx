@@ -14,6 +14,7 @@ import {
   createFile,
   createFolder,
   listSharedDrives,
+  listSharedWithMe,
   renameFile,
   trashFile,
   moveFile,
@@ -36,12 +37,14 @@ export default function FileExplorer() {
     isAuthenticated,
     rootItems,
     sharedDrives,
+    sharedWithMe,
     isLoadingFolder,
     error,
     currentFolderId,
     setAuthenticated,
     setRootItems,
     setSharedDrives,
+    setSharedWithMe,
     updateFolder,
     setLoadingFolder,
     setError,
@@ -90,6 +93,14 @@ export default function FileExplorer() {
       .catch(() => {}) // shared drives are optional — don't block on failure
   }, [isAuthenticated, sharedDrives.length, setSharedDrives])
 
+  // Load shared-with-me files when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || sharedWithMe.length > 0) return
+    listSharedWithMe()
+      .then(items => setSharedWithMe(items))
+      .catch(() => {}) // shared-with-me is optional — don't block on failure
+  }, [isAuthenticated, sharedWithMe.length, setSharedWithMe])
+
   async function handleConnect() {
     if (!googleClientId) {
       setSettingsOpen(true)
@@ -131,7 +142,7 @@ export default function FileExplorer() {
 
       if (isSharedDrivePath && !driveId) driveId = folder.id
 
-      const allItems = [...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives]
+      const allItems = [...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives, ...useDriveStore.getState().sharedWithMe]
       const findFolder = (items: DriveItem[]): DriveItem | undefined => {
         for (const item of items) {
           if (item.id === folder.id) return item
@@ -156,7 +167,7 @@ export default function FileExplorer() {
         }
       }
 
-      const updatedFolder = findFolder([...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives])
+      const updatedFolder = findFolder([...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives, ...useDriveStore.getState().sharedWithMe])
       currentItems = updatedFolder && isDriveFolder(updatedFolder) ? updatedFolder.children || [] : []
     }
   }
@@ -410,7 +421,7 @@ export default function FileExplorer() {
       return undefined
     }
 
-    const allItems = [...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives]
+    const allItems = [...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives, ...useDriveStore.getState().sharedWithMe]
     const draggedItem = findItem(allItems)
     const oldParentId = findParent(allItems)
 
@@ -515,6 +526,7 @@ export default function FileExplorer() {
             Promise.all([
               listFolder('root').then(items => setRootItems(items)),
               listSharedDrives().then(drives => setSharedDrives(drives)).catch(() => {}),
+              listSharedWithMe().then(items => setSharedWithMe(items)).catch(() => {}),
             ])
               .catch(err => setError(String(err)))
               .finally(() => setLoadingFolder(false))
@@ -554,6 +566,14 @@ export default function FileExplorer() {
         )}
         {sharedDrives.map(drive => (
           <FileTreeNode key={drive.id} item={drive} depth={0} {...treeProps} />
+        ))}
+        {sharedWithMe.length > 0 && (
+          <div className={styles.sectionDivider}>
+            <span>Shared with me</span>
+          </div>
+        )}
+        {sharedWithMe.map(item => (
+          <FileTreeNode key={item.id} item={item} depth={0} {...treeProps} />
         ))}
       </div>
 
