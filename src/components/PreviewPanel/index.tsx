@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo } from 'react'
+import DOMPurify from 'dompurify'
 import { useEditorStore } from '../../store/editorStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { renderMarkdown } from '../../services/markdown'
@@ -66,7 +67,12 @@ async function renderKrokiDiagrams(container: HTMLElement) {
 
     try {
       const svg = await fetchKrokiDiagram(entry.type, entry.code)
-      el.innerHTML = svg
+      el.innerHTML = DOMPurify.sanitize(svg, {
+        ADD_TAGS: ['svg', 'use', 'foreignObject'],
+        ADD_ATTR: ['viewBox', 'xmlns', 'xlink', 'fill', 'stroke', 'd', 'transform', 'cx', 'cy', 'r', 'x', 'y', 'width', 'height', 'rx', 'ry'],
+        FORBID_TAGS: ['script', 'iframe', 'object', 'embed'],
+        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+      })
     } catch {
       el.innerHTML = `<span class="diagram-error">Failed to render ${entry.type} diagram</span>`
     }

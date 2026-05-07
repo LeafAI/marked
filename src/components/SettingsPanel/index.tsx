@@ -5,6 +5,7 @@ import type { MermaidRenderer, PlantUMLRenderer, IconTheme } from '../../types'
 import styles from './SettingsPanel.module.css'
 
 const clientIdPreconfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID
+const CLIENT_ID_RE = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/
 
 export default function SettingsPanel() {
   const { settingsOpen, setSettingsOpen } = useUIStore()
@@ -75,7 +76,13 @@ export default function SettingsPanel() {
                   onChange={e => setGoogleClientId(e.target.value)}
                   placeholder="xxxx.apps.googleusercontent.com"
                   spellCheck={false}
+                  pattern="[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com"
                 />
+                {googleClientId && !CLIENT_ID_RE.test(googleClientId) && (
+                  <span className={styles.hint} style={{ color: '#f87171' }}>
+                    Expected format: 123456789-abc.apps.googleusercontent.com
+                  </span>
+                )}
                 <span className={styles.hint}>
                   <strong>1.</strong> Enable the{' '}
                   <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer">
