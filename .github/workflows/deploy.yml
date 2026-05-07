@@ -35,9 +35,14 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: npm run build
+        run: |
+          if [ -n "$GOOGLE_CLIENT_ID_SECRET" ]; then
+            export VITE_GOOGLE_CLIENT_ID=$(echo -n "$GOOGLE_CLIENT_ID_SECRET" | base64)
+          fi
+          npm run build
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GOOGLE_CLIENT_ID_SECRET: ${{ secrets.GOOGLE_CLIENT_ID }}
 
       - uses: actions/configure-pages@v5
 

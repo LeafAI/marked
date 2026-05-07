@@ -4,6 +4,8 @@ import { useSettingsStore } from '../../store/settingsStore'
 import type { MermaidRenderer, PlantUMLRenderer, IconTheme } from '../../types'
 import styles from './SettingsPanel.module.css'
 
+const clientIdPreconfigured = !!import.meta.env.VITE_GOOGLE_CLIENT_ID
+
 export default function SettingsPanel() {
   const { settingsOpen, setSettingsOpen } = useUIStore()
   const { googleClientId, diagrams, editor, iconTheme, setGoogleClientId, updateDiagramRenderer, updateEditorSettings, setIconTheme } =
@@ -50,36 +52,42 @@ export default function SettingsPanel() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Google Drive</h2>
 
-            <label className={styles.field}>
-              <span className={styles.label}>OAuth2 Client ID</span>
-              <input
-                type="text"
-                className={styles.input}
-                value={googleClientId}
-                onChange={e => setGoogleClientId(e.target.value)}
-                placeholder="xxxx.apps.googleusercontent.com"
-                spellCheck={false}
-              />
+            {clientIdPreconfigured ? (
               <span className={styles.hint}>
-                <strong>1.</strong> Enable the{' '}
-                <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer">
-                  Google Drive API
-                </a>{' '}
-                in your project.{' '}
-                <strong>2.</strong> Create a <strong>Web application</strong> OAuth 2.0 client at{' '}
-                <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">
-                  Google Cloud Console
-                </a>
-                .{' '}
-                <strong>3.</strong> Add these as <strong>Authorised JavaScript origins</strong> (not redirect URIs):{' '}
-                <code>https://leafai.github.io</code> and <code>http://localhost:5173</code>.{' '}
-                <strong>4.</strong> If the app is not published, add test users in{' '}
-                <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noreferrer">
-                  OAuth consent screen
-                </a>
-                .
+                Client ID is pre-configured via deployment. No manual setup required.
               </span>
-            </label>
+            ) : (
+              <label className={styles.field}>
+                <span className={styles.label}>OAuth2 Client ID</span>
+                <input
+                  type="text"
+                  className={styles.input}
+                  value={googleClientId}
+                  onChange={e => setGoogleClientId(e.target.value)}
+                  placeholder="xxxx.apps.googleusercontent.com"
+                  spellCheck={false}
+                />
+                <span className={styles.hint}>
+                  <strong>1.</strong> Enable the{' '}
+                  <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noreferrer">
+                    Google Drive API
+                  </a>{' '}
+                  in your project.{' '}
+                  <strong>2.</strong> Create a <strong>Web application</strong> OAuth 2.0 client at{' '}
+                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">
+                    Google Cloud Console
+                  </a>
+                  .{' '}
+                  <strong>3.</strong> Add these as <strong>Authorised JavaScript origins</strong> (not redirect URIs):{' '}
+                  <code>https://leafai.github.io</code> and <code>http://localhost:5173</code>.{' '}
+                  <strong>4.</strong> If the app is not published, add test users in{' '}
+                  <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noreferrer">
+                    OAuth consent screen
+                  </a>
+                  .
+                </span>
+              </label>
+            )}
           </section>
 
           {/* ── Diagram renderers ─────────────────────────────────── */}

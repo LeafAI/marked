@@ -110,6 +110,17 @@
   padding: 2px 0;
 }
 
+.sectionDivider {
+  padding: 8px 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+
 /* ── Inline name input ────────────────────────────────────────────────────── */
 
 .inlineInput {

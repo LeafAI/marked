@@ -3,6 +3,10 @@ import { AppSettings, DiagramRendererConfig, EditorSettings, IconTheme } from '.
 
 const STORAGE_KEY = 'marked:settings'
 
+// Decode base64-encoded client ID injected at build time (see deploy.yml)
+const envClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const defaultClientId = envClientId ? atob(envClientId) : ''
+
 const defaultDiagrams: DiagramRendererConfig = {
   mermaid: 'local',
   plantuml: 'plantuml.com',
@@ -20,10 +24,10 @@ const defaultEditor: EditorSettings = {
 function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { googleClientId: '', diagrams: defaultDiagrams, editor: defaultEditor, iconTheme: 'material' }
-    return { ...{ googleClientId: '', diagrams: defaultDiagrams, editor: defaultEditor, iconTheme: 'material' as const }, ...JSON.parse(raw) }
+    if (!raw) return { googleClientId: defaultClientId, diagrams: defaultDiagrams, editor: defaultEditor, iconTheme: 'material' }
+    return { ...{ googleClientId: defaultClientId, diagrams: defaultDiagrams, editor: defaultEditor, iconTheme: 'material' as const }, ...JSON.parse(raw) }
   } catch {
-    return { googleClientId: '', diagrams: defaultDiagrams, editor: defaultEditor, iconTheme: 'material' }
+    return { googleClientId: defaultClientId, diagrams: defaultDiagrams, editor: defaultEditor, iconTheme: 'material' }
   }
 }
 

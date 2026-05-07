@@ -5,12 +5,14 @@ interface DriveState {
   isAuthenticated: boolean
   userEmail: string | null
   rootItems: DriveItem[]
+  sharedDrives: DriveFolder[]
   currentFolderId: string
   isLoadingFolder: boolean
   error: string | null
   setAuthenticated: (email: string) => void
   clearAuth: () => void
   setRootItems: (items: DriveItem[]) => void
+  setSharedDrives: (drives: DriveFolder[]) => void
   updateFolder: (folderId: string, children: DriveItem[]) => void
   toggleFolder: (folderId: string) => void
   setCurrentFolder: (id: string) => void
@@ -35,6 +37,7 @@ export const useDriveStore = create<DriveState>(set => ({
   isAuthenticated: false,
   userEmail: null,
   rootItems: [],
+  sharedDrives: [],
   currentFolderId: 'root',
   isLoadingFolder: false,
   error: null,
@@ -42,9 +45,11 @@ export const useDriveStore = create<DriveState>(set => ({
   setAuthenticated: email => set({ isAuthenticated: true, userEmail: email, error: null }),
 
   clearAuth: () =>
-    set({ isAuthenticated: false, userEmail: null, rootItems: [], currentFolderId: 'root' }),
+    set({ isAuthenticated: false, userEmail: null, rootItems: [], sharedDrives: [], currentFolderId: 'root' }),
 
   setRootItems: items => set({ rootItems: items }),
+
+  setSharedDrives: drives => set({ sharedDrives: drives }),
 
   updateFolder: (folderId, children) => {
     set(state => ({
@@ -52,16 +57,23 @@ export const useDriveStore = create<DriveState>(set => ({
         children,
         isLoaded: true,
       }),
+      sharedDrives: updateFolderInTree(state.sharedDrives, folderId, {
+        children,
+        isLoaded: true,
+      }) as DriveFolder[],
     }))
   },
 
   toggleFolder: folderId => {
-    set(state => ({
-      rootItems: updateFolderInTree(state.rootItems, folderId, {
-        isExpanded: !(state.rootItems.find(i => i.id === folderId) as DriveFolder | undefined)
-          ?.isExpanded,
-      }),
-    }))
+    set(state => {
+      const allItems = [...state.rootItems, ...state.sharedDrives]
+      const target = allItems.find(i => i.id === folderId) as DriveFolder | undefined
+      const newExpanded = !target?.isExpanded
+      return {
+        rootItems: updateFolderInTree(state.rootItems, folderId, { isExpanded: newExpanded }),
+        sharedDrives: updateFolderInTree(state.sharedDrives, folderId, { isExpanded: newExpanded }) as DriveFolder[],
+      }
+    })
   },
 
   setCurrentFolder: id => set({ currentFolderId: id }),

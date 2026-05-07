@@ -13,8 +13,9 @@ import {
   getAccessToken,
   createFile,
   createFolder,
+  listSharedDrives,
 } from '../../../services/drive'
-import { OpenFile, isDriveFolder } from '../../../types'
+import { OpenFile, DriveItem, isDriveFolder } from '../../../types'
 import { FolderIconThemed, MarkdownIconThemed, NewFileIconThemed, NewFolderIconThemed, RefreshIconThemed } from '../../icons'
 import FileTreeNode from './FileTreeNode'
 import styles from './FileExplorer.module.css'
@@ -25,11 +26,13 @@ export default function FileExplorer() {
   const {
     isAuthenticated,
     rootItems,
+    sharedDrives,
     isLoadingFolder,
     error,
     currentFolderId,
     setAuthenticated,
     setRootItems,
+    setSharedDrives,
     updateFolder,
     setLoadingFolder,
     setError,
@@ -68,6 +71,14 @@ export default function FileExplorer() {
       .finally(() => setLoadingFolder(false))
   }, [isAuthenticated, rootItems.length, setRootItems, setLoadingFolder, setError])
 
+  // Load shared drives when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || sharedDrives.length > 0) return
+    listSharedDrives()
+      .then(drives => setSharedDrives(drives))
+      .catch(() => {}) // shared drives are optional — don't block on failure
+  }, [isAuthenticated, sharedDrives.length, setSharedDrives])
+
   async function handleConnect() {
     if (!googleClientId) {
       setSettingsOpen(true)
@@ -93,47 +104,50 @@ export default function FileExplorer() {
   async function expandParentFolders(fileId: string) {
     const { toggleFolder, updateFolder: update } = useDriveStore.getState()
     const path = await resolveFilePath(fileId)
-    // path is like "root/Parent/Child/file.md" — extract folder names
     const segments = path.split('/').filter(Boolean)
-    // Skip 'root' prefix and the file name (last segment)
-    const folderNames = segments.slice(segments[0] === 'root' ? 1 : 0, -1)
+    const isSharedDrivePath = segments[0] !== 'root'
+    const folderNames = isSharedDrivePath ? segments.slice(0, -1) : segments.slice(1, -1)
 
-    let currentItems = useDriveStore.getState().rootItems
+    // Start from the correct item list
+    let currentItems: DriveItem[] = isSharedDrivePath
+      ? useDriveStore.getState().sharedDrives
+      : useDriveStore.getState().rootItems
+    let driveId: string | undefined
+
     for (const folderName of folderNames) {
       const folder = currentItems.find(
         item => item.name === folderName && item.mimeType === 'application/vnd.google-apps.folder'
       )
       if (!folder) break
 
-      // Expand the folder if not already expanded
-      const folderState = useDriveStore.getState().rootItems
-      const findFolder = (items: typeof folderState): typeof folder | undefined => {
+      if (isSharedDrivePath && !driveId) driveId = folder.id
+
+      const allItems = [...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives]
+      const findFolder = (items: DriveItem[]): DriveItem | undefined => {
         for (const item of items) {
           if (item.id === folder.id) return item
-          if ('children' in item && item.children) {
+          if (isDriveFolder(item) && item.children) {
             const found = findFolder(item.children)
             if (found) return found
           }
         }
         return undefined
       }
-      const folderData = findFolder(folderState)
+      const folderData = findFolder(allItems)
       if (folderData && isDriveFolder(folderData) && !folderData.isExpanded) {
         toggleFolder(folder.id)
       }
 
-      // Load children if not loaded
       if (!folderData || !isDriveFolder(folderData) || !folderData.isLoaded) {
         try {
-          const children = await listFolder(folder.id)
+          const children = await listFolder(folder.id, driveId)
           update(folder.id, children)
         } catch {
           // Ignore errors during expansion
         }
       }
 
-      // Move to children for next iteration
-      const updatedFolder = findFolder(useDriveStore.getState().rootItems)
+      const updatedFolder = findFolder([...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives])
       currentItems = updatedFolder && isDriveFolder(updatedFolder) ? updatedFolder.children || [] : []
     }
   }
@@ -193,13 +207,28 @@ export default function FileExplorer() {
     }
   }
 
+  // Find the top-level shared drive ID that contains a given folder
+  function findDriveId(folderId: string): string | undefined {
+    const { sharedDrives: drives } = useDriveStore.getState()
+    for (const drive of drives) {
+      if (drive.id === folderId) return drive.id
+      if (drive.children) {
+        const find = (items: DriveItem[]): boolean =>
+          items.some(i => i.id === folderId || (isDriveFolder(i) && i.children ? find(i.children) : false))
+        if (find(drive.children)) return drive.id
+      }
+    }
+    return undefined
+  }
+
   async function handleFolderToggle(folderId: string) {
     const { toggleFolder, updateFolder: update } = useDriveStore.getState()
     toggleFolder(folderId)
     setCurrentFolder(folderId)
     setSelectedFolderId(folderId)
     try {
-      const children = await listFolder(folderId)
+      const driveId = findDriveId(folderId)
+      const children = await listFolder(folderId, driveId)
       update(folderId, children)
     } catch (err) {
       setError(String(err))
@@ -288,8 +317,10 @@ export default function FileExplorer() {
           title="Refresh"
           onClick={() => {
             setLoadingFolder(true)
-            listFolder('root')
-              .then(items => setRootItems(items))
+            Promise.all([
+              listFolder('root').then(items => setRootItems(items)),
+              listSharedDrives().then(drives => setSharedDrives(drives)).catch(() => {}),
+            ])
               .catch(err => setError(String(err)))
               .finally(() => setLoadingFolder(false))
           }}
@@ -339,6 +370,22 @@ export default function FileExplorer() {
           <FileTreeNode
             key={item.id}
             item={item}
+            depth={0}
+            selectedFolderId={selectedFolderId}
+            iconTheme={iconTheme}
+            onFileOpen={handleFileOpen}
+            onFolderToggle={handleFolderToggle}
+          />
+        ))}
+        {sharedDrives.length > 0 && (
+          <div className={styles.sectionDivider}>
+            <span>Shared drives</span>
+          </div>
+        )}
+        {sharedDrives.map(drive => (
+          <FileTreeNode
+            key={drive.id}
+            item={drive}
             depth={0}
             selectedFolderId={selectedFolderId}
             iconTheme={iconTheme}

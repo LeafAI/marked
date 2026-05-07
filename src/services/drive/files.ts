@@ -41,12 +41,19 @@ interface FileListResponse {
   nextPageToken?: string
 }
 
-export async function listFolder(folderId = 'root'): Promise<DriveItem[]> {
+export async function listFolder(folderId = 'root', driveId?: string): Promise<DriveItem[]> {
   const q = `'${folderId}' in parents and trashed = false`
   const fields = 'files(id,name,mimeType,parents,modifiedTime,size)'
-  const params = new URLSearchParams({ q, fields, orderBy: 'folder,name', pageSize: '200' })
+  const params: Record<string, string> = {
+    q, fields, orderBy: 'folder,name', pageSize: '200',
+    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
+  }
+  if (driveId) {
+    params.corpora = 'drive'
+    params.driveId = driveId
+  }
 
-  const data = await request<FileListResponse>(`${API}/files?${params}`)
+  const data = await request<FileListResponse>(`${API}/files?${new URLSearchParams(params)}`)
 
   return data.files.map(f =>
     f.mimeType === 'application/vnd.google-apps.folder'
@@ -55,13 +62,33 @@ export async function listFolder(folderId = 'root'): Promise<DriveItem[]> {
   )
 }
 
+// ─── Shared drives ───────────────────────────────────────────────────────────
+
+interface SharedDriveListResponse {
+  drives: { id: string; name: string }[]
+  nextPageToken?: string
+}
+
+export async function listSharedDrives(): Promise<DriveFolder[]> {
+  const params = new URLSearchParams({ pageSize: '100', fields: 'drives(id,name)' })
+  const data = await request<SharedDriveListResponse>(`${API}/drives?${params}`)
+
+  return data.drives.map(d => ({
+    id: d.id,
+    name: d.name,
+    mimeType: 'application/vnd.google-apps.folder',
+    isLoaded: false,
+    isExpanded: false,
+  }))
+}
+
 // ─── File content ─────────────────────────────────────────────────────────────
 
 export async function readFile(fileId: string): Promise<string> {
   const token = getAccessToken()
   if (!token) throw new Error('Not authenticated')
 
-  const res = await fetch(`${API}/files/${fileId}?alt=media`, {
+  const res = await fetch(`${API}/files/${fileId}?alt=media&supportsAllDrives=true`, {
     headers: { Authorization: `Bearer ${token}` },
   })
 
@@ -80,7 +107,7 @@ export async function saveFile(fileId: string, content: string, mimeType = 'text
   const token = getAccessToken()
   if (!token) throw new Error('Not authenticated')
 
-  const res = await fetch(`${UPLOAD_API}/files/${fileId}?uploadType=media`, {
+  const res = await fetch(`${UPLOAD_API}/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -124,7 +151,7 @@ export async function createFile({ name, parentId, content = '', mimeType = 'tex
     content +
     close
 
-  const res = await fetch(`${UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,parents`, {
+  const res = await fetch(`${UPLOAD_API}/files?uploadType=multipart&fields=id,name,mimeType,parents&supportsAllDrives=true`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -162,7 +189,7 @@ export async function resolveFilePath(fileId: string): Promise<string> {
   let currentId = fileId
 
   for (let i = 0; i < 20; i++) {
-    const data = await request<FileMeta>(`${API}/files/${currentId}?fields=id,name,parents`)
+    const data = await request<FileMeta>(`${API}/files/${currentId}?fields=id,name,parents&supportsAllDrives=true`)
     parts.unshift(data.name)
     if (!data.parents || data.parents.length === 0) break
     currentId = data.parents[0]
