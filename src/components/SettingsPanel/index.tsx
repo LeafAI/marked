@@ -56,7 +56,16 @@ export default function SettingsPanel() {
               <span className={styles.hint}>
                 Client ID is pre-configured via deployment. No manual setup required.
               </span>
-            ) : (
+            ) : null}
+            {googleClientId && (
+              <label className={styles.field}>
+                <span className={styles.label}>Active Client ID</span>
+                <code className={styles.hint} style={{ wordBreak: 'break-all', userSelect: 'all' }}>
+                  {googleClientId}
+                </code>
+              </label>
+            )}
+            {!clientIdPreconfigured && (
               <label className={styles.field}>
                 <span className={styles.label}>OAuth2 Client ID</span>
                 <input
@@ -99,7 +108,13 @@ export default function SettingsPanel() {
               <select
                 className={styles.select}
                 value={diagrams.mermaid}
-                onChange={e => updateDiagramRenderer({ mermaid: e.target.value as MermaidRenderer })}
+                onChange={e => {
+                  const value = e.target.value as MermaidRenderer
+                  if (value !== 'local' && !window.confirm(
+                    `Switching to "${value}" will send your diagram code to a third-party server for rendering. Do not use this for sensitive diagrams. Continue?`
+                  )) return
+                  updateDiagramRenderer({ mermaid: value })
+                }}
               >
                 <option value="local">mermaid.js (local, no network)</option>
                 <option value="mermaid.ink">mermaid.ink (remote image)</option>
@@ -112,7 +127,13 @@ export default function SettingsPanel() {
               <select
                 className={styles.select}
                 value={diagrams.plantuml}
-                onChange={e => updateDiagramRenderer({ plantuml: e.target.value as PlantUMLRenderer })}
+                onChange={e => {
+                  const value = e.target.value as PlantUMLRenderer
+                  if (!window.confirm(
+                    `Switching to "${value}" will send your diagram code to a third-party server for rendering. Do not use this for sensitive diagrams. Continue?`
+                  )) return
+                  updateDiagramRenderer({ plantuml: value })
+                }}
               >
                 <option value="plantuml.com">plantuml.com (official server)</option>
                 <option value="kroki">Kroki</option>
