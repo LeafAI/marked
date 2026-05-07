@@ -14,11 +14,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'monaco-editor': ['@monaco-editor/react'],
-          mermaid: ['mermaid'],
-          katex: ['katex'],
-          'highlight.js': ['highlight.js'],
+        manualChunks(id: string) {
+          if (id.includes('monaco-editor')) return 'monaco-editor'
+          if (id.includes('mermaid')) return 'mermaid'
+          if (id.includes('katex')) return 'katex'
+          if (id.includes('highlight.js')) return 'highlight.js'
         },
       },
     },
