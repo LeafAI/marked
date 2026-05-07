@@ -1,34 +1,50 @@
 import { useEditorStore } from '../../../store/editorStore'
-import { saveFile } from '../../../services/drive'
+import { useUIStore } from '../../../store/uiStore'
 import styles from './TabBar.module.css'
 
 export default function TabBar() {
-  const { tabs, activeTabId, setActiveTab, closeTab, markSaved } = useEditorStore()
+  const { tabs, activeTabId, setActiveTab, closeTab } = useEditorStore()
 
-  async function handleSave(tabId: string) {
+  async function handleSave(tabId: string): Promise<boolean> {
     const tab = tabs.find(t => t.id === tabId)
-    if (!tab) return
+    if (!tab) return true
     const isDirty = tab.content !== tab.originalContent
-    if (!isDirty) return
-    try {
-      await saveFile(tab.driveFileId, tab.content, tab.mimeType)
-      markSaved(tabId)
-    } catch (err) {
-      alert(`Save failed: ${err}`)
+    if (!isDirty) return true
+    const { performSave } = await import('../../../services/saveManager')
+    const outcome = await performSave(tab)
+    if (outcome === 'conflict-detected') {
+      const { readFile } = await import('../../../services/drive/files')
+      const remoteContent = await readFile(tab.driveFileId)
+      useUIStore.getState().setMergeConflict({
+        tabId: tab.id,
+        base: tab.originalContent,
+        ours: tab.content,
+        theirs: remoteContent,
+      })
+      return false
     }
+    if (outcome === 'error') {
+      alert('Save failed')
+      return false
+    }
+    return true
   }
 
   function handleTabClick(id: string) {
     setActiveTab(id)
   }
 
-  function handleTabClose(e: React.MouseEvent, id: string) {
+  async function handleTabClose(e: React.MouseEvent, id: string) {
     e.stopPropagation()
     const tab = tabs.find(t => t.id === id)
     if (tab && tab.content !== tab.originalContent) {
       const confirmed = confirm(`Save changes to "${tab.name}" before closing?`)
-      if (confirmed) handleSave(id).then(() => closeTab(id))
-      else closeTab(id)
+      if (confirmed) {
+        const saved = await handleSave(id)
+        if (saved) closeTab(id)
+      } else {
+        closeTab(id)
+      }
       return
     }
     closeTab(id)
@@ -37,7 +53,7 @@ export default function TabBar() {
   function handleTabMiddleClick(e: React.MouseEvent, id: string) {
     if (e.button === 1) {
       e.preventDefault()
-      handleTabClose(e, id)
+      void handleTabClose(e, id)
     }
   }
 

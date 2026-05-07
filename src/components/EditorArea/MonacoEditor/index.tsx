@@ -3,6 +3,7 @@ import Editor, { loader, Monaco } from '@monaco-editor/react'
 import type * as MonacoType from 'monaco-editor'
 import { useEditorStore } from '../../../store/editorStore'
 import { useSettingsStore } from '../../../store/settingsStore'
+import { useUIStore } from '../../../store/uiStore'
 import { setEditorInstance } from '../../../services/editorRef'
 import styles from './MonacoEditor.module.css'
 
@@ -50,15 +51,26 @@ export default function MonacoEditor() {
     editorRef.current = editor
     setEditorInstance(editor)
 
-    // Ctrl+S / Cmd+S → save
+    // Ctrl+S / Cmd+S → save with conflict detection
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      const { tabs: currentTabs, activeTabId: currentId, markSaved } = useEditorStore.getState()
+      const { tabs: currentTabs, activeTabId: currentId } = useEditorStore.getState()
       const file = currentTabs.find(t => t.id === currentId)
       if (!file) return
-      import('../../../services/drive/files').then(({ saveFile }) => {
-        saveFile(file.driveFileId, file.content, file.mimeType)
-          .then(() => markSaved(file.id))
-          .catch(() => {})
+      import('../../../services/saveManager').then(({ performSave }) => {
+        performSave(file).then(outcome => {
+          if (outcome === 'conflict-detected') {
+            import('../../../services/drive/files').then(({ readFile }) => {
+              readFile(file.driveFileId).then(remoteContent => {
+                useUIStore.getState().setMergeConflict({
+                  tabId: file.id,
+                  base: file.originalContent,
+                  ours: file.content,
+                  theirs: remoteContent,
+                })
+              })
+            })
+          }
+        })
       })
     })
   }
@@ -68,16 +80,14 @@ export default function MonacoEditor() {
       if (activeTabId && value !== undefined) {
         updateContent(activeTabId, value)
 
-        // Debounced auto-save (2 seconds)
+        // Debounced auto-save (2 seconds) — silent merge, skip dialog on conflict
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
         saveTimeoutRef.current = setTimeout(() => {
-          const { tabs: currentTabs, markSaved } = useEditorStore.getState()
+          const { tabs: currentTabs } = useEditorStore.getState()
           const file = currentTabs.find(t => t.id === activeTabId)
           if (!file || file.content === file.originalContent) return
-          import('../../../services/drive/files').then(({ saveFile }) => {
-            saveFile(file.driveFileId, file.content, file.mimeType)
-              .then(() => markSaved(activeTabId))
-              .catch(() => {})
+          import('../../../services/saveManager').then(({ performSave }) => {
+            performSave(file, { silent: true })
           })
         }, 2000)
       }

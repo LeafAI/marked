@@ -31,7 +31,12 @@ export interface OpenFile {
   originalContent: string
   mimeType: string
   path: string
+  baseModifiedTime: string
 }
+
+export type MergeResult =
+  | { kind: 'clean'; merged: string }
+  | { kind: 'conflict'; merged: string; ours: string; theirs: string; base: string }
 
 export type TabId = string
 

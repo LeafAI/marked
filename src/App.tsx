@@ -7,6 +7,7 @@ import StatusBar from './components/StatusBar'
 import ResizeHandle from './components/ResizeHandle'
 import WelcomeScreen from './components/WelcomeScreen'
 import SettingsPanel from './components/SettingsPanel'
+import MergeConflictDialog from './components/MergeConflictDialog'
 import { useUIStore } from './store/uiStore'
 import { useEditorStore } from './store/editorStore'
 import styles from './App.module.css'
@@ -83,6 +84,7 @@ export default function App() {
 
       <StatusBar />
       <SettingsPanel />
+      <MergeConflictDialog />
     </div>
   )
 }

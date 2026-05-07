@@ -8,7 +8,8 @@ interface EditorState {
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   updateContent: (id: string, content: string) => void
-  markSaved: (id: string) => void
+  markSaved: (id: string, newModifiedTime: string) => void
+  updateBaseModifiedTime: (id: string, modifiedTime: string) => void
   getActiveFile: () => OpenFile | undefined
 }
 
@@ -48,10 +49,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }))
   },
 
-  markSaved: id => {
+  markSaved: (id, newModifiedTime) => {
     set(state => ({
       tabs: state.tabs.map(t =>
-        t.id === id ? { ...t, originalContent: t.content } : t
+        t.id === id ? { ...t, originalContent: t.content, baseModifiedTime: newModifiedTime } : t
+      ),
+    }))
+  },
+
+  updateBaseModifiedTime: (id, modifiedTime) => {
+    set(state => ({
+      tabs: state.tabs.map(t =>
+        t.id === id ? { ...t, baseModifiedTime: modifiedTime } : t
       ),
     }))
   },

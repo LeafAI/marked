@@ -66,8 +66,20 @@ export const useDriveStore = create<DriveState>(set => ({
 
   toggleFolder: folderId => {
     set(state => {
-      const allItems = [...state.rootItems, ...state.sharedDrives]
-      const target = allItems.find(i => i.id === folderId) as DriveFolder | undefined
+      const findFolder = (items: DriveItem[]): DriveFolder | undefined => {
+        for (const item of items) {
+          if (item.id === folderId && item.mimeType === 'application/vnd.google-apps.folder') {
+            return item as DriveFolder
+          }
+          const folder = item as DriveFolder
+          if (folder.children) {
+            const found = findFolder(folder.children)
+            if (found) return found
+          }
+        }
+        return undefined
+      }
+      const target = findFolder([...state.rootItems, ...state.sharedDrives])
       const newExpanded = !target?.isExpanded
       return {
         rootItems: updateFolderInTree(state.rootItems, folderId, { isExpanded: newExpanded }),

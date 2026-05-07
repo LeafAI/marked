@@ -101,6 +101,23 @@ export async function readFile(fileId: string): Promise<string> {
   return res.text()
 }
 
+// ─── File metadata ────────────────────────────────────────────────────────────
+
+export async function getFileModifiedTime(fileId: string): Promise<string> {
+  const data = await request<{ modifiedTime: string }>(
+    `${API}/files/${fileId}?fields=modifiedTime&supportsAllDrives=true`
+  )
+  return data.modifiedTime
+}
+
+export async function readFileWithMeta(fileId: string): Promise<{ content: string; modifiedTime: string }> {
+  const [content, modifiedTime] = await Promise.all([
+    readFile(fileId),
+    getFileModifiedTime(fileId),
+  ])
+  return { content, modifiedTime }
+}
+
 // ─── Save file ────────────────────────────────────────────────────────────────
 
 export async function saveFile(fileId: string, content: string, mimeType = 'text/markdown'): Promise<void> {

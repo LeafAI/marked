@@ -5,7 +5,7 @@ import { useEditorStore } from '../../../store/editorStore'
 import { useUIStore } from '../../../store/uiStore'
 import {
   listFolder,
-  readFile,
+  readFileWithMeta,
   resolveFilePath,
   isMarkdownFile,
   startAuth,
@@ -159,8 +159,8 @@ export default function FileExplorer() {
       // Expand parent folders first so the file is visible in the tree
       await expandParentFolders(fileId)
 
-      const [content, path] = await Promise.all([
-        readFile(fileId),
+      const [{ content, modifiedTime }, path] = await Promise.all([
+        readFileWithMeta(fileId),
         resolveFilePath(fileId),
       ])
       const file: OpenFile = {
@@ -171,6 +171,7 @@ export default function FileExplorer() {
         content,
         originalContent: content,
         path,
+        baseModifiedTime: modifiedTime,
       }
       openFile(file)
 
