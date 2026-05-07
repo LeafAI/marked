@@ -2,9 +2,30 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useEditorStore } from '../../store/editorStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { renderMarkdown } from '../../services/markdown'
-import { fetchKrokiDiagram, getKrokiEntry } from '../../services/markdown/diagrams'
+import { renderDiagram, clearKrokiStore, fetchKrokiDiagram, getKrokiEntry } from '../../services/markdown/diagrams'
 import { getEditorInstance } from '../../services/editorRef'
 import styles from './PreviewPanel.module.css'
+
+// File extensions that map directly to diagram languages (standalone diagram files)
+const DIAGRAM_FILE_EXTS: Record<string, string> = {
+  '.mmd': 'mermaid',
+  '.mermaid': 'mermaid',
+  '.dot': 'dot',
+  '.gv': 'graphviz',
+  '.puml': 'plantuml',
+  '.plantuml': 'plantuml',
+  '.ditaa': 'ditaa',
+  '.erd': 'erd',
+  '.nomnoml': 'nomnoml',
+  '.svgbob': 'svgbob',
+  '.vg': 'vegalite',
+  '.vega-lite': 'vegalite',
+}
+
+function getDiagramLanguage(name: string): string | null {
+  const ext = name.slice(name.lastIndexOf('.')).toLowerCase()
+  return DIAGRAM_FILE_EXTS[ext] || null
+}
 
 // Mermaid is loaded lazily on first use
 let mermaidInitialized = false
@@ -70,10 +91,24 @@ export default function PreviewPanel() {
     [activeFile?.name, activeFile?.mimeType]
   )
 
+  const diagramLanguage = useMemo(
+    () => (activeFile?.name ? getDiagramLanguage(activeFile.name) : null),
+    [activeFile?.name]
+  )
+
+  const isPreviewable = isMarkdown || !!diagramLanguage
+
   const html = useMemo(() => {
-    if (!activeFile || !isMarkdown) return ''
+    if (!activeFile || !isPreviewable) return ''
+
+    if (diagramLanguage) {
+      clearKrokiStore()
+      const inner = renderDiagram(activeFile.content, diagramLanguage, diagrams)
+      return inner ? `<div class="markdown-body">${inner}</div>` : ''
+    }
+
     return renderMarkdown(activeFile.content, diagrams)
-  }, [activeFile?.content, diagrams, isMarkdown]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeFile?.content, diagrams, isPreviewable, diagramLanguage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!containerRef.current || !html) return
@@ -88,7 +123,7 @@ export default function PreviewPanel() {
 
   // Scroll sync: map editor scroll proportionally to preview
   useEffect(() => {
-    if (!isMarkdown) return
+    if (!isPreviewable) return
 
     let disposed = false
     let cleanup: (() => void) | null = null
@@ -125,7 +160,7 @@ export default function PreviewPanel() {
       clearInterval(poll)
       cleanup?.()
     }
-  }, [isMarkdown, activeTabId])
+  }, [isPreviewable, activeTabId])
 
   if (!activeFile) {
     return (
@@ -135,10 +170,10 @@ export default function PreviewPanel() {
     )
   }
 
-  if (!isMarkdown) {
+  if (!isPreviewable) {
     return (
       <div className={styles.preview}>
-        <div className={styles.empty}>Preview only available for markdown files (.md, .markdown)</div>
+        <div className={styles.empty}>Preview only available for markdown and diagram files</div>
       </div>
     )
   }

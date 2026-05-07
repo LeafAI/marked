@@ -26,7 +26,7 @@ export default function App() {
 
   const handlePreviewResize = useCallback(
     (delta: number) => {
-      setPreviewWidth(Math.max(200, Math.min(900, previewWidth - delta)))
+      setPreviewWidth(Math.max(200, previewWidth - delta))
     },
     [previewWidth, setPreviewWidth]
   )

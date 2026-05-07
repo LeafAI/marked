@@ -22,6 +22,7 @@ interface FileTreeNodeProps {
 const MARKDOWN_EXTS = new Set(['.md', '.markdown'])
 const CONFIG_EXTS = new Set(['.json', '.yaml', '.yml', '.toml', '.ini', '.env', '.conf'])
 const CODE_EXTS = new Set(['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.java', '.c', '.cpp', '.h'])
+const DIAGRAM_EXTS = new Set(['.mmd', '.mermaid', '.dot', '.gv', '.puml', '.plantuml', '.ditaa', '.erd', '.nomnoml', '.svgbob', '.vg', '.vega-lite'])
 
 function getFileIcon(name: string, mimeType: string, theme: IconTheme) {
   if (mimeType === 'application/vnd.google-apps.folder') {
@@ -29,6 +30,7 @@ function getFileIcon(name: string, mimeType: string, theme: IconTheme) {
   }
   const ext = name.slice(name.lastIndexOf('.')).toLowerCase()
   if (MARKDOWN_EXTS.has(ext)) return <MarkdownIconThemed className={styles.icon} theme={theme} />
+  if (DIAGRAM_EXTS.has(ext)) return <CodeFileIconThemed className={styles.icon} theme={theme} />
   if (CONFIG_EXTS.has(ext)) return <ConfigFileIconThemed className={styles.icon} theme={theme} />
   if (CODE_EXTS.has(ext)) return <CodeFileIconThemed className={styles.icon} theme={theme} />
   return <TextFileIconThemed className={styles.icon} theme={theme} />
