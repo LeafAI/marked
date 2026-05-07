@@ -1,6 +1,7 @@
 import { marked, Renderer, Tokens } from 'marked'
 import hljs from 'highlight.js'
 import katex from 'katex'
+import DOMPurify from 'dompurify'
 import { DiagramRendererConfig } from '../../types'
 import { renderDiagram, DIAGRAM_LANGUAGES, clearKrokiStore } from './diagrams'
 
@@ -169,5 +170,13 @@ export function renderMarkdown(source: string, diagramConfig: DiagramRendererCon
 
   // Pre-process math before marked (to avoid marked escaping $ signs)
   const withMath = renderMath(source)
-  return marked.parse(withMath) as string
+  const rawHtml = marked.parse(withMath) as string
+
+  // Sanitize to prevent XSS (V-01): marked v9+ removed built-in sanitization
+  return DOMPurify.sanitize(rawHtml, {
+    ADD_TAGS: ['svg', 'use', 'foreignObject'],
+    ADD_ATTR: ['data-line', 'aria-hidden', 'class', 'id', 'viewBox', 'xmlns', 'xlink', 'fill', 'stroke', 'd', 'transform', 'cx', 'cy', 'r', 'x', 'y', 'width', 'height', 'rx', 'ry'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+  })
 }

@@ -18,9 +18,10 @@ import {
   renameFile,
   trashFile,
   moveFile,
+  openPicker,
 } from '../../../services/drive'
-import { OpenFile, DriveItem, isDriveFolder } from '../../../types'
-import { NewFileIconThemed, NewFolderIconThemed, RefreshIconThemed } from '../../icons'
+import { OpenFile, DriveItem, DriveFolder, isDriveFolder } from '../../../types'
+import { FolderIconThemed, NewFileIconThemed, NewFolderIconThemed, RefreshIconThemed } from '../../icons'
 import ContextMenu from './ContextMenu'
 import FileTreeNode from './FileTreeNode'
 import type { InlineInputMode } from './FileTreeNode'
@@ -451,6 +452,55 @@ export default function FileExplorer() {
     setInlineName('')
   }
 
+  async function handlePickerOpen() {
+    if (!googleClientId) {
+      setSettingsOpen(true)
+      return
+    }
+    const token = getAccessToken()
+    if (!token) return
+
+    try {
+      const picked = await openPicker(googleClientId, token, false)
+      if (picked.length === 0) return
+
+      setLoadingFolder(true)
+      for (const file of picked) {
+        const existing = [...useDriveStore.getState().rootItems, ...useDriveStore.getState().sharedDrives, ...useDriveStore.getState().sharedWithMe]
+        const alreadyExists = existing.some(item => item.id === file.id)
+        if (alreadyExists) continue
+
+        if (file.mimeType === 'application/vnd.google-apps.folder') {
+          const folder: DriveFolder = {
+            id: file.id,
+            name: file.name,
+            mimeType: file.mimeType,
+            isLoaded: false,
+            isExpanded: false,
+          }
+          setRootItems([...useDriveStore.getState().rootItems, folder])
+          try {
+            const children = await listFolder(file.id)
+            updateFolder(file.id, children)
+          } catch {
+            // ignore
+          }
+        } else {
+          const driveFile: DriveItem = {
+            id: file.id,
+            name: file.name,
+            mimeType: file.mimeType,
+          }
+          setRootItems([...useDriveStore.getState().rootItems, driveFile])
+        }
+      }
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      setLoadingFolder(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const isSessionExpired =
@@ -520,6 +570,14 @@ export default function FileExplorer() {
         </button>
         <button
           className={styles.toolbarBtn}
+          title="Browse files (Google Picker)"
+          onClick={handlePickerOpen}
+          disabled={isLoadingFolder}
+        >
+          <FolderIconThemed theme={iconTheme} />
+        </button>
+        <button
+          className={styles.toolbarBtn}
           title="Refresh"
           onClick={() => {
             setLoadingFolder(true)
@@ -553,6 +611,15 @@ export default function FileExplorer() {
 
       {isLoadingFolder && rootItems.length === 0 && (
         <div className={styles.loading}>Loading…</div>
+      )}
+
+      {!isLoadingFolder && rootItems.length === 0 && sharedDrives.length === 0 && sharedWithMe.length === 0 && (
+        <div className={styles.empty}>
+          <p className={styles.emptyText}>No files yet. Click Browse to select files from Google Drive.</p>
+          <button className={styles.connectBtn} onClick={handlePickerOpen}>
+            Browse Google Drive
+          </button>
+        </div>
       )}
 
       <div className={styles.tree} role="tree">

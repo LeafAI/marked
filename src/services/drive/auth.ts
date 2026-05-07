@@ -14,7 +14,7 @@
 //
 // Docs: https://developers.google.com/identity/oauth2/web/guides/use-token-model
 
-const SCOPE = 'https://www.googleapis.com/auth/drive email profile'
+const SCOPE = 'https://www.googleapis.com/auth/drive.file email profile'
 const TOKEN_KEY = 'marked:access_token'
 const TOKEN_EXPIRY_KEY = 'marked:token_expiry'
 
@@ -46,9 +46,40 @@ interface GIS {
   }
 }
 
+// ─── Picker type declarations ────────────────────────────────────────────────
+
+interface PickerDocument {
+  id: string
+  name: string
+  mimeType: string
+  parentId?: string
+}
+
+interface PickerResponse {
+  action: string
+  docs: PickerDocument[]
+}
+
+interface PickerBuilder {
+  addView(view: unknown): PickerBuilder
+  setOAuthToken(token: string): PickerBuilder
+  setDeveloperKey(key: string): PickerBuilder
+  setCallback(cb: (data: PickerResponse) => void): PickerBuilder
+  build(): { setVisible(visible: boolean): void }
+}
+
 declare global {
   interface Window {
     google?: GIS
+    gapi?: {
+      load(libraries: string, cb: () => void): void
+      picker?: {
+        Action: { PICKED: string }
+        ViewId: { DOCS: string; FOLDERS: string }
+        DocsView: new () => { setSelectFolderMode(b: boolean): unknown; setIncludeFolders(b: boolean): unknown }
+        PickerBuilder: new () => PickerBuilder
+      }
+    }
   }
 }
 
@@ -131,4 +162,69 @@ export async function getUserEmail(token: string): Promise<string> {
   if (!res.ok) throw new Error('Failed to fetch user info')
   const data = (await res.json()) as { email: string }
   return data.email
+}
+
+// ─── Google Picker API ───────────────────────────────────────────────────────
+
+function loadPickerApi(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.gapi?.picker) {
+      resolve()
+      return
+    }
+
+    const script = document.querySelector<HTMLScriptElement>(
+      'script[src="https://apis.google.com/js/api.js"]'
+    )
+    if (script) {
+      script.addEventListener('load', () => {
+        window.gapi!.load('picker', () => resolve())
+      })
+      script.addEventListener('error', () => reject(new Error('Failed to load Google API')))
+      return
+    }
+
+    const s = document.createElement('script')
+    s.src = 'https://apis.google.com/js/api.js'
+    s.async = true
+    s.onload = () => window.gapi!.load('picker', () => resolve())
+    s.onerror = () => reject(new Error('Failed to load Google API'))
+    document.head.appendChild(s)
+  })
+}
+
+export interface PickedFile {
+  id: string
+  name: string
+  mimeType: string
+}
+
+export async function openPicker(
+  clientId: string,
+  token: string,
+  selectFolder: boolean,
+): Promise<PickedFile[]> {
+  await loadPickerApi()
+  const picker = window.gapi!.picker!
+
+  return new Promise(resolve => {
+    const view = selectFolder
+      ? new picker.DocsView().setSelectFolderMode(true)
+      : new picker.DocsView()
+
+    const builder = new picker.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(token)
+      .setDeveloperKey(clientId)
+      .setCallback((data: PickerResponse) => {
+        if (data.action === picker.Action.PICKED) {
+          resolve(data.docs.map(d => ({ id: d.id, name: d.name, mimeType: d.mimeType })))
+        } else {
+          resolve([])
+        }
+      })
+      .build()
+
+    builder.setVisible(true)
+  })
 }

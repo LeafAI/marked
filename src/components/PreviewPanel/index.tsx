@@ -35,7 +35,7 @@ async function initMermaid() {
   mermaid.initialize({
     startOnLoad: false,
     theme: 'dark',
-    securityLevel: 'loose',
+    securityLevel: 'strict',
     fontFamily: 'var(--font-mono)',
   })
   mermaidInitialized = true
