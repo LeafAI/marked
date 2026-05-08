@@ -10,6 +10,7 @@ export default function ResizeHandle({ direction, onDrag }: ResizeHandleProps) {
   const startPos = useRef(0)
   const dragging = useRef(false)
   const onDragRef = useRef(onDrag)
+  const onMouseUpRef = useRef<() => void>(() => {})
 
   // Keep the callback ref up-to-date without triggering re-renders
   useEffect(() => {
@@ -28,10 +29,14 @@ export default function ResizeHandle({ direction, onDrag }: ResizeHandleProps) {
   const onMouseUp = useCallback(() => {
     dragging.current = false
     document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
+    document.removeEventListener('mouseup', onMouseUpRef.current)
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
   }, [onMouseMove])
+
+  useEffect(() => {
+    onMouseUpRef.current = onMouseUp
+  }, [onMouseUp])
 
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -41,16 +46,16 @@ export default function ResizeHandle({ direction, onDrag }: ResizeHandleProps) {
       document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize'
       document.body.style.userSelect = 'none'
       document.addEventListener('mousemove', onMouseMove)
-      document.addEventListener('mouseup', onMouseUp)
+      document.addEventListener('mouseup', onMouseUpRef.current)
     },
-    [direction, onMouseMove, onMouseUp]
+    [direction, onMouseMove]
   )
 
   // Cleanup listeners on unmount
   useEffect(() => () => {
     document.removeEventListener('mousemove', onMouseMove)
-    document.removeEventListener('mouseup', onMouseUp)
-  }, [onMouseMove, onMouseUp])
+    document.removeEventListener('mouseup', onMouseUpRef.current)
+  }, [onMouseMove])
 
   return (
     <div

@@ -99,7 +99,7 @@ export default function PreviewPanel() {
 
   const diagramLanguage = useMemo(
     () => (activeFile?.name ? getDiagramLanguage(activeFile.name) : null),
-    [activeFile?.name]
+    [activeFile]
   )
 
   const isPreviewable = isMarkdown || !!diagramLanguage

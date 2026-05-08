@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useMemo, useState, useCallback, useRef } from 'react'
 import { useEditorStore } from '../../../store/editorStore'
 import { useSettingsStore } from '../../../store/settingsStore'
 import { extractOutline } from '../../../services/markdown'
@@ -119,11 +119,13 @@ export default function OutlinePanel({ onHeadingClick }: OutlinePanelProps) {
   }, [activeFile])
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const prevTreeRef = useRef(tree)
 
   // Expand all nodes when the tree changes (new file or content change)
-  useEffect(() => {
+  if (tree !== prevTreeRef.current) { // eslint-disable-line react-hooks/refs
+    prevTreeRef.current = tree // eslint-disable-line react-hooks/refs
     setExpanded(new Set(collectIds(tree)))
-  }, [tree])
+  }
 
   const handleToggle = useCallback((id: string) => {
     setExpanded(prev => {
